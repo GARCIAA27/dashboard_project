@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from validation_schemas.create_user import UserCreate
 from models.user import User
 from database import SessionLocal
 import hashlib
+import jwt
+
+SECRET_KEY = "key_for_jwt_token_generation"
+ALGORITHM = "HS256"
 
 router = APIRouter()
 
@@ -14,6 +19,7 @@ def get_db():
     finally:
         db.close()
 
+# Endpoint for new user registration
 @router.post("/auth")
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     if user.password != user.repeat_password:
@@ -30,4 +36,20 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     return {"id": new_user.id, "name": new_user.name}
+
+# Function to verify JWT token (for protected routes)
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+def validate_token(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return username
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
