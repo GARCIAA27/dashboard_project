@@ -46,10 +46,11 @@ def validate_token(token: str = Depends(oauth2_scheme)):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise HTTPException(status_code=401, detail="Invalid token payload")
         return username
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
+    except jwt.InvalidSignatureError:
+        raise HTTPException(status_code=401, detail="Invalid signature")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Token error: {str(e)}")

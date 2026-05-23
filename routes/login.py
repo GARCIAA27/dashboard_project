@@ -30,6 +30,8 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid password")
 
     expire = datetime.datetime.now() + datetime.timedelta(hours=1)
-    token = jwt.encode({"sub": user.name, "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
+    to_encode = {"sub": user.name, "exp": expire.timestamp()}
+    print(f"Generating token for user: {user.name} with expiration at {expire}")
+    token = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
     return {"access_token": token, "token_type": "bearer"}

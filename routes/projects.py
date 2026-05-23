@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from database import SessionLocal
 from models.projects import Project
 from models.user import User
-from validation_schemas.project import ProjectCreate, ProjectResponse
+from validation_schemas.projects import ProjectCreate, ProjectResponse
 from routes.auth import validate_token
 
 router = APIRouter()
