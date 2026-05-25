@@ -28,3 +28,38 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db), userna
     db.refresh(new_project)
 
     return new_project
+
+def get_user_id(username: str, db: Session):
+    user = db.query(User).filter(User.name == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user.id
+
+@router.get("/projects")
+def list_projects(username: str = Depends(validate_token), db: Session = Depends(get_db)):
+    user_id = get_user_id(username, db)
+    return db.query(Project).filter(Project.owner_id == user_id).all()
+
+@router.get("/projects/{project_id}")
+def get_project(project_id: int, username: str = Depends(validate_token), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.name == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+@router.delete("/projects/{project_id}")
+def delete_project(project_id: int, username: str = Depends(validate_token), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.name == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    db.delete(project)
+    db.commit()
+    return {"detail": "Project deleted"}
