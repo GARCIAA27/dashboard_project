@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-from routes import auth, login, projects
+from routes import auth, login, project, projects
 
 app = FastAPI()
 app.include_router(auth.router)
 app.include_router(login.router)
 app.include_router(projects.router)
+app.include_router(project.router)
+app.title = "Project Dashboard API"
 
 def custom_openapi():
     if app.openapi_schema:

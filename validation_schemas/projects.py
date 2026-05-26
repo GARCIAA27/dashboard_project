@@ -11,4 +11,4 @@ class ProjectResponse(BaseModel):
     owner_id: int
     #This will allow app to return the project data in a structured way, including the owner information if needed.
     class Config:
-        orm_mode = True
+        from_attributes = True

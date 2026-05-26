@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models.projects import Project
-from models.user import User
+from models.projects import Project, ProjectAccess
 from validation_schemas.projects import ProjectCreate, ProjectResponse
+from models.user import User
 from routes.auth import validate_token
 
 router = APIRouter()
@@ -27,6 +27,10 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db), userna
     db.commit()
     db.refresh(new_project)
 
+    access = ProjectAccess(project_id=new_project.id, user_id=user.id, role="admin")
+    db.add(access)
+    db.commit()
+
     return new_project
 
 def get_user_id(username: str, db: Session):
@@ -37,29 +41,12 @@ def get_user_id(username: str, db: Session):
 
 @router.get("/projects")
 def list_projects(username: str = Depends(validate_token), db: Session = Depends(get_db)):
-    user_id = get_user_id(username, db)
-    return db.query(Project).filter(Project.owner_id == user_id).all()
-
-@router.get("/projects/{project_id}")
-def get_project(project_id: int, username: str = Depends(validate_token), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.name == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return project
+    projects = db.query(Project).join(ProjectAccess).filter(
+        (Project.owner_id == user.id) | (ProjectAccess.user_id == user.id)
+    ).all()
+    return projects
 
-@router.delete("/projects/{project_id}")
-def delete_project(project_id: int, username: str = Depends(validate_token), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.name == username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    db.delete(project)
-    db.commit()
-    return {"detail": "Project deleted"}

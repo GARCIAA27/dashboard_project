@@ -11,3 +11,15 @@ class Project(Base):
     owner_id = Column(Integer, ForeignKey("users.id"))
 
     owner = relationship("User", backref="projects")
+
+
+class ProjectAccess(Base):
+    __tablename__ = "project_access"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    role = Column(String)  # "admin" o "user"
+
+    project = relationship("Project", backref="access_list")
+    user = relationship("User", backref="project_access")
