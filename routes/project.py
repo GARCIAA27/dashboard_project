@@ -21,8 +21,7 @@ def get_user_id(username: str, db: Session):
         raise HTTPException(status_code=404, detail="User not found")
     return user.id
 
-#Endpoint to create a new project, only accessible to authenticated users.
-#  The creator is automatically assigned as admin of the project.
+#Endpoint to get specific project details, only accessible to project members (admin or user).
 @router.get("/project/{project_id}/info")
 def get_project(project_id: int, username: str = Depends(validate_token), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.name == username).first()
@@ -48,7 +47,7 @@ def delete_project(project_id: int, username: str = Depends(validate_token), db:
     db.commit()
     return {"detail": "Project deleted"}
 
-#Endpoint to invite a user to a project, only accessible to project admins. The invited user will have the specified role.
+#Endpoint to invite a user to a project, only accessible to project admins. The invited user will have the user role.
 @router.post("/project/{project_id}/invite")
 def invite_user(project_id: int, access: ProjectAccessCreate, username: str = Depends(validate_token), db: Session = Depends(get_db)):
     # Validate authentication and get current user
@@ -57,17 +56,18 @@ def invite_user(project_id: int, access: ProjectAccessCreate, username: str = De
         raise HTTPException(status_code=404, detail="Project not found")
 
     # Confirm current user is admin of the project
-    current_user = db.query(User).filter(User.name == username).first()
+    current_user_id = get_user_id(username, db)
     admin_access = db.query(ProjectAccess).filter(
         ProjectAccess.project_id == project_id,
-        ProjectAccess.user_id == current_user.id,
+        ProjectAccess.user_id == current_user_id,
         ProjectAccess.role == "admin"
     ).first()
     if not admin_access:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     # Grant access to the invited user
-    new_access = ProjectAccess(project_id=project_id, user_id=access.user_id, role=access.role)
+    invited_user_id = get_user_id(access.username, db)
+    new_access = ProjectAccess(project_id=project_id, user_id=invited_user_id, role="user")
     db.add(new_access)
     db.commit()
     return {"detail": "User invited"}
