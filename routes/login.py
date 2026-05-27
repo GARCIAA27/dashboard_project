@@ -6,9 +6,13 @@ from validation_schemas.login import LoginRequest
 import hashlib
 import jwt
 import datetime
+from dotenv import load_dotenv
+import os
 
-SECRET_KEY = "key_for_jwt_token_generation"
-ALGORITHM = "HS256"
+load_dotenv()
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM")
+
 
 router = APIRouter()
 
