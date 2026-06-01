@@ -1,36 +1,30 @@
+from os import access
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import SessionLocal
+from models.documents import Document
 from models.projects import Project, ProjectAccess
 from validation_schemas.project import ProjectAccessCreate, ProjectUpdate
 from models.user import User
 from routes.auth import validate_token
-
+from utils.utils import get_user_id, get_db
+from utils.aws_config import s3_client, AWS_BUCKET_NAME
+from fastapi import UploadFile, File
+from validation_schemas.documents import DocumentResponse
 router = APIRouter()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-def get_user_id(username: str, db: Session):
-    user = db.query(User).filter(User.name == username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user.id
 
 #Endpoint to get specific project details, only accessible to project members (admin or user).
 @router.get("/project/{project_id}/info")
-def get_project(project_id: int, username: str = Depends(validate_token), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.name == username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+def get_project_info(project_id: int, username: str = Depends(validate_token), db: Session = Depends(get_db)):
+    user_id = get_user_id(username, db)
+    access = db.query(ProjectAccess).filter_by(project_id=project_id, user_id=user_id).first()
+    if not access:
+        raise HTTPException(status_code=403, detail="Access forbidden")
 
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+    project = db.query(Project).filter_by(id=project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
     return project
 
 #Endpoint to delete a project, only accessible to the project owner (admin).
@@ -112,3 +106,44 @@ def update_project_info(
         "name": project.name,
         "description": project.description
     }
+
+#Endpoint to upload a document to a project, only accessible to project members (admin or user). The document will be stored in S3 and its metadata in the database.
+@router.post("/project/{project_id}/documents", response_model=DocumentResponse)
+def upload_document(
+    project_id: int,
+    file: UploadFile = File(...),
+    username: str = Depends(validate_token),
+    db: Session = Depends(get_db)
+):
+    
+    user = get_user_id(username,db)
+    access = db.query(ProjectAccess).filter_by(project_id=project_id, user_id=user).first()
+    if not access:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+
+    # Subir a S3 usando datos del .env
+    s3_key = f"projects/{project_id}/{file.filename}"
+    s3_client.upload_fileobj(file.file, AWS_BUCKET_NAME, s3_key)
+
+    # Guardar metadata en DB
+    doc = Document(
+        project_id=project_id,
+        filename=file.filename,
+        url=f"s3://{AWS_BUCKET_NAME}/{s3_key}",
+        size=file.size
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+#Endpoint to return all documents of a project, only accessible to project members (admin or user).
+@router.get("/project/{project_id}/documents", response_model=list[DocumentResponse])
+def list_documents(project_id: int, username: str = Depends(validate_token), db: Session = Depends(get_db)):
+    user_id = get_user_id(username, db)
+    access = db.query(ProjectAccess).filter_by(project_id=project_id, user_id=user_id).first()
+    if not access:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+
+    docs = db.query(Document).filter_by(project_id=project_id).all()
+    return docs

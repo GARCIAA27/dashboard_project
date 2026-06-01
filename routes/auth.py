@@ -3,24 +3,24 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from validation_schemas.create_user import UserCreate
 from models.user import User
-from database import SessionLocal
-import hashlib
+from utils.utils import get_db
 import jwt
+from passlib.context import CryptContext
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
-
 router = APIRouter()
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(str(password))
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
 
 # Endpoint for new user registration
 @router.post("/auth")
@@ -33,7 +33,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="User already exists")
 
-    hashed_pw = hashlib.sha256(user.password.encode()).hexdigest()
+    hashed_pw = hash_password(user.password)
     new_user = User(name=user.name, password=hashed_pw)
     db.add(new_user)
     db.commit()

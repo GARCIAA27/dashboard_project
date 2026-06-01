@@ -5,15 +5,9 @@ from models.projects import Project, ProjectAccess
 from validation_schemas.projects import ProjectCreate, ProjectResponse
 from models.user import User
 from routes.auth import validate_token
+from utils.utils import get_db
 
 router = APIRouter()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.post("/projects", response_model=ProjectResponse)
 def create_project(project: ProjectCreate, db: Session = Depends(get_db), username: str = Depends(validate_token)):

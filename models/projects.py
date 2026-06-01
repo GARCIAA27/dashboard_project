@@ -16,6 +16,7 @@ class Project(Base):
     owner_id = Column(Integer, ForeignKey("users.id"))
 
     owner = relationship("User", backref="projects")
+    documents = relationship("Document", back_populates="project")
 
 
 class ProjectAccess(Base):
