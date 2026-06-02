@@ -9,6 +9,7 @@ class ProjectResponse(BaseModel):
     name: str
     description: str
     owner_id: int
-    #This will allow app to return the project data in a structured way, including the owner information if needed.
+    total_size: int
+
     class Config:
         from_attributes = True

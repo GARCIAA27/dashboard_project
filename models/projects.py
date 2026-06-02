@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey,Enum
+from sqlalchemy import BigInteger, Column, Integer, String, ForeignKey,Enum
 from sqlalchemy.orm import relationship
 from database import Base
 from enum import Enum as PyEnum
@@ -14,10 +14,9 @@ class Project(Base):
     name = Column(String, unique=True, index=True)
     description = Column(String)
     owner_id = Column(Integer, ForeignKey("users.id"))
-
     owner = relationship("User", backref="projects")
     documents = relationship("Document", back_populates="project")
-
+    total_size = Column(BigInteger, nullable=False, default=0)
 
 class ProjectAccess(Base):
     __tablename__ = "project_access"

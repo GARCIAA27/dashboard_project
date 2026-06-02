@@ -25,7 +25,7 @@ def download_document(document_id: int, username: str = Depends(validate_token),
     )
     return {"download_url": signed_url}
 
-#Endpoint to update a document's metadata (e.g., filename), only accessible to project members (admin or user)  .
+#Endpoint to update a document, reupload (admin or user)  .
 @router.put("/document/{document_id}", response_model=DocumentResponse)
 def update_document(
     document_id: int,
@@ -37,6 +37,11 @@ def update_document(
     doc = get_document(document_id, db)
     exception_access(doc.project_id, user_id, db)
 
+    if file.filename != doc.filename:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Filename mismatch: expected '{doc.filename}', got '{file.filename}'"
+        )
     s3_client.upload_fileobj(file.file, AWS_BUCKET_NAME, doc.s3_key)
 
     doc.size = file.size if hasattr(file, "size") else None

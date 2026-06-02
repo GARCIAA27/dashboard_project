@@ -122,7 +122,7 @@ def upload_document(
     s3_key = f"projects/{project_id}/{file.filename}"
     s3_client.upload_fileobj(file.file, AWS_BUCKET_NAME, s3_key)
 
-    # Guardar metadata en DB
+    
     doc = Document(
         project_id=project_id,
         filename=file.filename,
