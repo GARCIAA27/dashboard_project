@@ -7,7 +7,7 @@ from models.projects import Project, ProjectAccess
 from validation_schemas.project import ProjectAccessCreate, ProjectUpdate
 from models.user import User
 from routes.auth import validate_token
-from utils.utils import get_user_id, get_db
+from utils.utils import exception_access, get_user_id, get_db
 from utils.aws_config import s3_client, AWS_BUCKET_NAME
 from fastapi import UploadFile, File
 from validation_schemas.documents import DocumentResponse
@@ -117,11 +117,8 @@ def upload_document(
 ):
     
     user = get_user_id(username,db)
-    access = db.query(ProjectAccess).filter_by(project_id=project_id, user_id=user).first()
-    if not access:
-        raise HTTPException(status_code=403, detail="Access forbidden")
+    exception_access(project_id, user, db)
 
-    # Subir a S3 usando datos del .env
     s3_key = f"projects/{project_id}/{file.filename}"
     s3_client.upload_fileobj(file.file, AWS_BUCKET_NAME, s3_key)
 
@@ -129,7 +126,7 @@ def upload_document(
     doc = Document(
         project_id=project_id,
         filename=file.filename,
-        url=f"s3://{AWS_BUCKET_NAME}/{s3_key}",
+        s3_key=s3_key,
         size=file.size
     )
     db.add(doc)
@@ -141,9 +138,7 @@ def upload_document(
 @router.get("/project/{project_id}/documents", response_model=list[DocumentResponse])
 def list_documents(project_id: int, username: str = Depends(validate_token), db: Session = Depends(get_db)):
     user_id = get_user_id(username, db)
-    access = db.query(ProjectAccess).filter_by(project_id=project_id, user_id=user_id).first()
-    if not access:
-        raise HTTPException(status_code=403, detail="Access forbidden")
+    exception_access(project_id, user_id, db)
 
     docs = db.query(Document).filter_by(project_id=project_id).all()
     return docs

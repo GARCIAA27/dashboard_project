@@ -8,7 +8,7 @@ class Document(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     filename = Column(String, nullable=False)
-    url = Column(String, nullable=False)   
-    size = Column(Integer, nullable=True) 
+    s3_key = Column(String, nullable=False)
+    size = Column(Integer, nullable=True)
 
     project = relationship("Project", back_populates="documents")

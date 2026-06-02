@@ -4,8 +4,8 @@ class DocumentResponse(BaseModel):
     id: int
     project_id: int
     filename: str
-    url: str
+    s3_key: str
     size: int | None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
