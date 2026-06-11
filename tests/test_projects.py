@@ -2,7 +2,7 @@ import pytest
 from httpx import AsyncClient
 from fastapi import status
 from app.main import app
-from routes.login import validate_token  
+from routes.auth import validate_token  
 
 # Override the validate_token dependency to return a fixed user for testing
 def fake_validate_token():
