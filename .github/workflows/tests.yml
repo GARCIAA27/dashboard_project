@@ -18,4 +18,4 @@ jobs:
           pip install -r requirements.txt
           export PYTHONPATH=$PYTHONPATH:$(pwd)
           pip install pytest
-      - run: pytest
+      - run: pytest tests/
