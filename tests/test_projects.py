@@ -27,7 +27,7 @@ def test_db():
 
 # Override the token validation to return a fixed user for testing
 def fake_validate_token():
-    return {"test-user"}
+    return "test-user"
 
 app.dependency_overrides[validate_token] = fake_validate_token
 
