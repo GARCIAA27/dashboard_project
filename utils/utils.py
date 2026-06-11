@@ -1,12 +1,13 @@
-from database import SessionLocal
 from fastapi import Depends, HTTPException
-from models.documents import Document
-from models.user import User
 from sqlalchemy.orm import Session
+
+from database import SESSION_LOCAL
+from models.documents import Document
 from models.projects import ProjectAccess
+from models.user import User
 
 def get_db():
-    db = SessionLocal()
+    db = SESSION_LOCAL()
     try:
         yield db
     finally:
@@ -22,7 +23,7 @@ def exception_access(project_id: int, user_id: int, db: Session = Depends(get_db
     access = db.query(ProjectAccess).filter_by(project_id=project_id, user_id=user_id).first()
     if not access:
         raise HTTPException(status_code=403, detail="Access forbidden")
-   
+
 
 def get_document(document_id: int, db: Session = Depends(get_db)):
     doc = db.query(Document).filter_by(id=document_id).first()

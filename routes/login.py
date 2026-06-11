@@ -1,15 +1,15 @@
+import datetime
+import os
+
+import jwt
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import SessionLocal
+
 from models.user import User
-from validation_schemas.login import LoginRequest
-import jwt
-import datetime
-from dotenv import load_dotenv
-from utils.utils import get_db
 from routes.auth import verify_password
-from dotenv import load_dotenv
-import os
+from utils.utils import get_db
+from validation_schemas.login import LoginRequest
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")

@@ -1,17 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
+
 from models.documents import Document
-from models.projects import ProjectAccess
-from models.user import User
 from routes.auth import validate_token
-from utils.utils import get_user_id, get_db, exception_access, get_document
-from utils.aws_config import s3_client, AWS_BUCKET_NAME
-from fastapi import UploadFile, File
+from utils.aws_config import AWS_BUCKET_NAME, s3_client
+from utils.utils import exception_access, get_db, get_document, get_user_id
 from validation_schemas.documents import DocumentResponse
 
 router = APIRouter()
 
-#Endpoint to download a document, only accessible to project members (admin or user). Returns a presigned URL for S3 download.
+# Endpoint to download a document, only accessible to project members (admin or user).
+# Returns a presigned URL for S3 download.
 @router.get("/document/{document_id}")
 def download_document(document_id: int, username: str = Depends(validate_token), db: Session = Depends(get_db)):
     user_id = get_user_id(username, db)
@@ -33,7 +32,7 @@ def update_document(
     db: Session = Depends(get_db),
     current_user: str = Depends(validate_token)
 ):
-    user_id = get_user_id(current_user, db) 
+    user_id = get_user_id(current_user, db)
     doc = get_document(document_id, db)
     exception_access(doc.project_id, user_id, db)
 
@@ -50,7 +49,7 @@ def update_document(
     db.refresh(doc)
     return doc
 
-#Endpoint to delete a document also deletes the file from S3.
+# Endpoint to delete a document also deletes the file from S3.
 @router.delete("/document/{document_id}")
 def delete_document(document_id: int, current_user: str = Depends(validate_token), db: Session = Depends(get_db)):
     user_id = get_user_id(current_user, db)

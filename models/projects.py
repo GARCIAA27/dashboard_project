@@ -1,11 +1,13 @@
-from sqlalchemy import BigInteger, Column, Integer, String, ForeignKey,Enum
-from sqlalchemy.orm import relationship
-from database import Base
 from enum import Enum as PyEnum
 
+from sqlalchemy import BigInteger, Column, Enum, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
+
+from database import Base
+
 class RoleEnum(str, PyEnum):
-    admin = "admin"
-    user = "user"
+    ADMIN = "admin"
+    USER = "user"
 
 class Project(Base):
     __tablename__ = "projects"

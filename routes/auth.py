@@ -1,13 +1,15 @@
+import os
+
+import jwt
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from validation_schemas.create_user import UserCreate
+
 from models.user import User
 from utils.utils import get_db
-import jwt
-from passlib.context import CryptContext
-from dotenv import load_dotenv
-import os
+from validation_schemas.create_user import UserCreate
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -51,9 +53,9 @@ def validate_token(token: str = Depends(oauth2_scheme)):
         if username is None:
             raise HTTPException(status_code=401, detail="Invalid token payload")
         return username
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidSignatureError:
-        raise HTTPException(status_code=401, detail="Invalid signature")
+    except jwt.ExpiredSignatureError as exc:
+        raise HTTPException(status_code=401, detail="Token expired") from exc
+    except jwt.InvalidSignatureError as exc:
+        raise HTTPException(status_code=401, detail="Invalid signature") from exc
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Token error: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Token error: {str(e)}") from e
