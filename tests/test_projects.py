@@ -5,12 +5,12 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 from app.main import app
-from routes.auth import validate_token
-from database import Base
+from project_dashboard.routes.auth import validate_token
+from project_dashboard.database import Base
 # Import all models to ensure they're registered with Base
-from models.user import User  # Adjust import path as needed
-from models.project import Project  # Adjust import path as needed
-from utils.utils import get_db
+from project_dashboard.models.user import User  # Adjust import path as needed
+from project_dashboard.models.project import Project  # Adjust import path as needed
+from project_dashboard.utils.utils import get_db
 
 # Use an in-memory SQLite database for testing
 @pytest.fixture(scope="function")
