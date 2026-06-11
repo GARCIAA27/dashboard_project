@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from models.documents import Document
 from routes.auth import validate_token
 from utils.aws_config import AWS_BUCKET_NAME, s3_client
 from utils.utils import exception_access, get_db, get_document, get_user_id
@@ -12,7 +11,11 @@ router = APIRouter()
 # Endpoint to download a document, only accessible to project members (admin or user).
 # Returns a presigned URL for S3 download.
 @router.get("/document/{document_id}")
-def download_document(document_id: int, username: str = Depends(validate_token), db: Session = Depends(get_db)):
+def download_document(
+    document_id: int,
+    username: str = Depends(validate_token),
+    db: Session = Depends(get_db),
+):
     user_id = get_user_id(username, db)
     doc = get_document(document_id, db)
     exception_access(project_id=doc.project_id, user_id=user_id, db=db)
@@ -51,7 +54,11 @@ def update_document(
 
 # Endpoint to delete a document also deletes the file from S3.
 @router.delete("/document/{document_id}")
-def delete_document(document_id: int, current_user: str = Depends(validate_token), db: Session = Depends(get_db)):
+def delete_document(
+    document_id: int,
+    current_user: str = Depends(validate_token),
+    db: Session = Depends(get_db),
+):
     user_id = get_user_id(current_user, db)
     doc = get_document(document_id, db)
     exception_access(project_id=doc.project_id, user_id=user_id, db=db)

@@ -13,11 +13,16 @@ router = APIRouter()
 
 # Endpoint to get specific project details, only accessible to project members (admin or user).
 @router.get("/project/{project_id}/info")
-def get_project_info(project_id: int, username: str = Depends(validate_token),
-                     db: Session = Depends(get_db)):
+def get_project_info(
+    project_id: int,
+    username: str = Depends(validate_token),
+    db: Session = Depends(get_db),
+):
     user_id = get_user_id(username, db)
-    user_access = db.query(ProjectAccess).filter_by(project_id=project_id,
-                                                     user_id=user_id).first()
+    user_access = db.query(ProjectAccess).filter_by(
+        project_id=project_id,
+        user_id=user_id,
+    ).first()
     if not user_access:
         raise HTTPException(status_code=403, detail="Access forbidden")
 
@@ -29,12 +34,19 @@ def get_project_info(project_id: int, username: str = Depends(validate_token),
 
 # Endpoint to delete a project, only accessible to the project owner (admin).
 @router.delete("/project/{project_id}")
-def delete_project(project_id: int, username: str = Depends(validate_token), db: Session = Depends(get_db)):
+def delete_project(
+    project_id: int,
+    username: str = Depends(validate_token),
+    db: Session = Depends(get_db),
+):
     user = db.query(User).filter(User.name == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == user.id,
+    ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     db.delete(project)
@@ -44,7 +56,12 @@ def delete_project(project_id: int, username: str = Depends(validate_token), db:
 # Endpoint to invite a user to a project, only accessible to project admins.
 # The invited user will have the user role.
 @router.post("/project/{project_id}/invite")
-def invite_user(project_id: int, access: ProjectAccessCreate, username: str = Depends(validate_token), db: Session = Depends(get_db)):
+def invite_user(
+    project_id: int,
+    access: ProjectAccessCreate,
+    username: str = Depends(validate_token),
+    db: Session = Depends(get_db),
+):
     # Validate authentication and get current user
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
@@ -116,20 +133,18 @@ def upload_document(
     project_id: int,
     file: UploadFile = File(...),
     username: str = Depends(validate_token),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    
     user = get_user_id(username, db)
     exception_access(project_id, user, db)
 
     s3_key = f"projects/{project_id}/{file.filename}"
     s3_client.upload_fileobj(file.file, AWS_BUCKET_NAME, s3_key)
-
     doc = Document(
         project_id=project_id,
         filename=file.filename,
         s3_key=s3_key,
-        size=file.size
+        size=file.size,
     )
     db.add(doc)
     db.commit()
