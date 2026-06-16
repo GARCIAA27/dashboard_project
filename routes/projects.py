@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from models.projects import Project, ProjectAccess
 from models.user import User
 from routes.auth import validate_token
-from utils.utils import get_db
+from utils.utils import get_db, get_user_id
 from validation_schemas.projects import ProjectCreate, ProjectResponse
 
 router = APIRouter()
@@ -13,11 +13,8 @@ router = APIRouter()
 def create_project(project: ProjectCreate, db: Session = Depends(get_db),
                    username: str = Depends(validate_token)):
     # Find the user based on the username extracted from the token
-    user = db.query(User).filter(User.name == username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    new_project = Project(name=project.name, description=project.description, owner_id=user.id)
+    user_id = get_user_id(username, db)
+    new_project = Project(name=project.name, description=project.description, owner_id=user_id)
     db.add(new_project)
     db.commit()
     db.refresh(new_project)
@@ -28,19 +25,10 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db),
 
     return new_project
 
-def get_user_id(username: str, db: Session):
-    user = db.query(User).filter(User.name == username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user.id
-
 @router.get("/projects")
 def list_projects(username: str = Depends(validate_token), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.name == username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
+    user_id = get_user_id(username, db)
     projects = db.query(Project).join(ProjectAccess).filter(
-        (Project.owner_id == user.id) | (ProjectAccess.user_id == user.id)
+        (Project.owner_id == user_id) | (ProjectAccess.user_id == user_id)
     ).all()
     return projects
