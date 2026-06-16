@@ -26,15 +26,17 @@ auth_routes.ALGORITHM = "HS256"
 login_routes.SECRET_KEY = "testsecret"
 login_routes.ALGORITHM = "HS256"
 
-
+# Dummy S3 client for testing
+# There are deviations from pylint with unused arguments because the methods need to 
+# match the boto3 interface, even if we don't use all parameters in the dummy implementation.
 class DummyS3Client:
-    def upload_fileobj(self, file_obj, **kwargs):
+    def upload_fileobj(self, file_obj, bucket, key):  # pylint: disable=unused-argument
         pass
 
-    def generate_presigned_url(self, **kwargs):
+    def generate_presigned_url(self, method, **kwargs):  # pylint: disable=unused-argument
         return f"https://example.com/{kwargs['Params']['Key']}"
 
-    def delete_object(self, **kwargs):
+    def delete_object(self, **kwargs):  # pylint: disable=unused-argument
         pass
 
 
