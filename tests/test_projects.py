@@ -57,8 +57,8 @@ async def test_get_projects_returns_200(test_db):
     test_db.commit()
     test_db.refresh(project)
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        response = await ac.get("/projects/")  # ojo con el slash
+    async with AsyncClient(app=app, base_url="http://test", follow_redirects=True) as ac:
+        response = await ac.get("/projects")
 
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
