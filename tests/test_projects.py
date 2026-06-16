@@ -53,6 +53,14 @@ async def test_get_projects_returns_200(test_db):
     test_db.commit()
     test_db.refresh(project)
 
+    project_access = ProjectAccess(
+        project_id=project.id,
+        user_id=user.id,
+        role="admin"
+    )
+    test_db.add(project_access)
+    test_db.commit()
+
     # Override validate_token to return the test user
     def fake_validate_token():
         return "test-user"
