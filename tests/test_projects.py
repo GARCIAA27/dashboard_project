@@ -1,6 +1,4 @@
-﻿from pathlib import Path
-
-import pytest
+﻿import pytest
 from faker import Faker
 from fastapi import status
 from httpx import AsyncClient
@@ -20,6 +18,7 @@ import routes.login as login_routes
 import routes.project as project_routes
 from utils.utils import get_db
 
+# pylint: disable=redefined-outer-name
 fake = Faker()
 
 auth_routes.SECRET_KEY = "testsecret"
@@ -29,13 +28,13 @@ login_routes.ALGORITHM = "HS256"
 
 
 class DummyS3Client:
-    def upload_fileobj(self, file_obj, *args, **kwargs):
+    def upload_fileobj(self, file_obj, **kwargs):
         pass
 
-    def generate_presigned_url(self, *args, **kwargs):
+    def generate_presigned_url(self, **kwargs):
         return f"https://example.com/{kwargs['Params']['Key']}"
 
-    def delete_object(self, *args, **kwargs):
+    def delete_object(self, **kwargs):
         pass
 
 
@@ -107,7 +106,7 @@ def create_document(db_session, project, filename="test-file.txt", size=42):
 
 
 @pytest.mark.asyncio
-async def test_auth_register(override_db):
+async def test_auth_register():
     password = fake.password()
     payload = {
         "name": fake.user_name(),
@@ -204,7 +203,9 @@ async def test_invite_user(db_session):
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["detail"] == "User invited"
-    access = db_session.query(ProjectAccess).filter_by(project_id=project.id, user_id=invitee.id).first()
+    access = db_session.query(ProjectAccess).filter_by(
+        project_id=project.id, user_id=invitee.id
+    ).first()
     assert access is not None
     assert access.role == "user"
 
