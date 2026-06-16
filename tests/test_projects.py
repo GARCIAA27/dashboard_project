@@ -27,7 +27,7 @@ login_routes.SECRET_KEY = "testsecret"
 login_routes.ALGORITHM = "HS256"
 
 # Dummy S3 client for testing
-# There are deviations from pylint with unused arguments because the methods need to 
+# There are deviations from pylint with unused arguments because the methods need to
 # match the boto3 interface, even if we don't use all parameters in the dummy implementation.
 class DummyS3Client:
     def upload_fileobj(self, file_obj, bucket, key):  # pylint: disable=unused-argument
