@@ -46,6 +46,7 @@ async def test_get_projects_returns_200(test_db):
     # Create project fake
     project = Project(
         name=fake.company(),
+        description=fake.text(),
         owner_id=user.id
     )
     test_db.add(project)
@@ -54,7 +55,7 @@ async def test_get_projects_returns_200(test_db):
 
     # Override validate_token to return the test user
     def fake_validate_token():
-        return user
+        return "test-user"
     app.dependency_overrides[validate_token] = fake_validate_token
 
     # Endpoint to test
