@@ -30,25 +30,20 @@ def test_db():
     db.close()
     engine.dispose()
 
-# Override de la validación de token
-def fake_validate_token():
-    return "test-user"
-
-app.dependency_overrides[validate_token] = fake_validate_token
-
 @pytest.mark.asyncio
 async def test_get_projects_returns_200(test_db):
+    # Override db to use the test database
     def override_get_db():
         yield test_db
     app.dependency_overrides[get_db] = override_get_db
 
-    # Crear usuario fake
+    # Create user fake
     user = User(name="test-user", password=fake.password())
     test_db.add(user)
     test_db.commit()
     test_db.refresh(user)
 
-    # Crear proyecto fake
+    # Create project fake
     project = Project(
         name=fake.company(),
         owner_id=user.id
@@ -57,11 +52,18 @@ async def test_get_projects_returns_200(test_db):
     test_db.commit()
     test_db.refresh(project)
 
+    # Override validate_token to return the test user
+    def fake_validate_token():
+        return user
+    app.dependency_overrides[validate_token] = fake_validate_token
+
+    # Endpoint to test
     async with AsyncClient(app=app, base_url="http://test", follow_redirects=True) as ac:
-        response = await ac.get("/projects")
+        response = await ac.get("/projects")  # usa la ruta exacta definida en tu router
 
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert any(p["name"] == project.name for p in data)
 
+    # Clean up overrides
     app.dependency_overrides.clear()
