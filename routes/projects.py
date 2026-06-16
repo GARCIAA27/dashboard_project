@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from models.projects import Project, ProjectAccess
-from models.user import User
 from routes.auth import validate_token
 from utils.utils import get_db, get_user_id
 from validation_schemas.projects import ProjectCreate, ProjectResponse

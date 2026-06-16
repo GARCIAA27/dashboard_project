@@ -1,6 +1,4 @@
-﻿import sys
-from pathlib import Path
-import io
+﻿from pathlib import Path
 
 import pytest
 from faker import Faker
@@ -10,20 +8,17 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT))
-
+from app.main import app
+from database import Base
+from models.documents import Document
+from models.projects import Project, ProjectAccess
+from models.user import User
+from routes.auth import validate_token, hash_password
 import routes.auth as auth_routes
+import routes.document as document_routes
 import routes.login as login_routes
 import routes.project as project_routes
-import routes.document as document_routes
-from app.main import app
-from routes.auth import validate_token, hash_password
-from database import Base
 from utils.utils import get_db
-from models.user import User
-from models.projects import Project, ProjectAccess
-from models.documents import Document
 
 fake = Faker()
 
@@ -34,13 +29,13 @@ login_routes.ALGORITHM = "HS256"
 
 
 class DummyS3Client:
-    def upload_fileobj(self, file_obj, bucket, key):
+    def upload_fileobj(self, file_obj, *args, **kwargs):
         pass
 
-    def generate_presigned_url(self, client_method, Params=None, ExpiresIn=None):
-        return f"https://example.com/{Params['Key']}"
+    def generate_presigned_url(self, *args, **kwargs):
+        return f"https://example.com/{kwargs['Params']['Key']}"
 
-    def delete_object(self, Bucket=None, Key=None):
+    def delete_object(self, *args, **kwargs):
         pass
 
 
@@ -48,27 +43,27 @@ dummy_s3 = DummyS3Client()
 
 
 @pytest.fixture(scope="function")
-def test_db():
+def db_session():
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
     Base.metadata.create_all(engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = TestingSessionLocal()
+    testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = testing_session_local()
     yield db
     db.close()
     engine.dispose()
 
 
-@pytest.fixture
-def override_db(test_db):
+@pytest.fixture(autouse=True)
+def override_db(db_session):
     def override_get_db():
-        yield test_db
+        yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    yield test_db
+    yield db_session
     app.dependency_overrides.clear()
 
 
@@ -78,36 +73,36 @@ def patch_s3(monkeypatch):
     monkeypatch.setattr(document_routes, "s3_client", dummy_s3)
 
 
-def create_user(test_db, name=None, password=None):
+def create_user(db_session, name=None, password=None):
     raw_password = password or fake.password()
     user = User(name=name or fake.user_name(), password=hash_password(raw_password))
-    test_db.add(user)
-    test_db.commit()
-    test_db.refresh(user)
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
     return user, raw_password
 
 
-def create_project_with_admin(test_db, owner):
+def create_project_with_admin(db_session, owner):
     project = Project(name=fake.company(), description=fake.text(), owner_id=owner.id)
-    test_db.add(project)
-    test_db.commit()
-    test_db.refresh(project)
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(project)
     access = ProjectAccess(project_id=project.id, user_id=owner.id, role="admin")
-    test_db.add(access)
-    test_db.commit()
+    db_session.add(access)
+    db_session.commit()
     return project
 
 
-def create_document(test_db, project, filename="test-file.txt", size=42):
+def create_document(db_session, project, filename="test-file.txt", size=42):
     document = Document(
         project_id=project.id,
         filename=filename,
         s3_key=f"projects/{project.id}/{filename}",
         size=size,
     )
-    test_db.add(document)
-    test_db.commit()
-    test_db.refresh(document)
+    db_session.add(document)
+    db_session.commit()
+    db_session.refresh(document)
     return document
 
 
@@ -128,8 +123,8 @@ async def test_auth_register(override_db):
 
 
 @pytest.mark.asyncio
-async def test_login_returns_token(override_db, test_db):
-    user, password = create_user(test_db)
+async def test_login_returns_token(db_session):
+    user, password = create_user(db_session)
 
     async with AsyncClient(app=app, base_url="http://test") as ac:
         response = await ac.post("/login", json={"name": user.name, "password": password})
@@ -141,8 +136,8 @@ async def test_login_returns_token(override_db, test_db):
 
 
 @pytest.mark.asyncio
-async def test_create_project(override_db, test_db):
-    user, _ = create_user(test_db)
+async def test_create_project(db_session):
+    user, _ = create_user(db_session)
 
     def fake_validate_token():
         return user.name
@@ -159,9 +154,9 @@ async def test_create_project(override_db, test_db):
 
 
 @pytest.mark.asyncio
-async def test_list_projects(override_db, test_db):
-    user, _ = create_user(test_db)
-    project = create_project_with_admin(test_db, user)
+async def test_list_projects(db_session):
+    user, _ = create_user(db_session)
+    project = create_project_with_admin(db_session, user)
 
     def fake_validate_token():
         return user.name
@@ -177,9 +172,9 @@ async def test_list_projects(override_db, test_db):
 
 
 @pytest.mark.asyncio
-async def test_get_project_info(override_db, test_db):
-    user, _ = create_user(test_db)
-    project = create_project_with_admin(test_db, user)
+async def test_get_project_info(db_session):
+    user, _ = create_user(db_session)
+    project = create_project_with_admin(db_session, user)
 
     def fake_validate_token():
         return user.name
@@ -194,10 +189,10 @@ async def test_get_project_info(override_db, test_db):
 
 
 @pytest.mark.asyncio
-async def test_invite_user(override_db, test_db):
-    owner, _ = create_user(test_db)
-    invitee, _ = create_user(test_db)
-    project = create_project_with_admin(test_db, owner)
+async def test_invite_user(db_session):
+    owner, _ = create_user(db_session)
+    invitee, _ = create_user(db_session)
+    project = create_project_with_admin(db_session, owner)
 
     def fake_validate_token():
         return owner.name
@@ -209,15 +204,15 @@ async def test_invite_user(override_db, test_db):
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["detail"] == "User invited"
-    access = test_db.query(ProjectAccess).filter_by(project_id=project.id, user_id=invitee.id).first()
+    access = db_session.query(ProjectAccess).filter_by(project_id=project.id, user_id=invitee.id).first()
     assert access is not None
     assert access.role == "user"
 
 
 @pytest.mark.asyncio
-async def test_update_project_info(override_db, test_db):
-    user, _ = create_user(test_db)
-    project = create_project_with_admin(test_db, user)
+async def test_update_project_info(db_session):
+    user, _ = create_user(db_session)
+    project = create_project_with_admin(db_session, user)
 
     def fake_validate_token():
         return user.name
@@ -235,9 +230,9 @@ async def test_update_project_info(override_db, test_db):
 
 
 @pytest.mark.asyncio
-async def test_upload_document(override_db, test_db):
-    user, _ = create_user(test_db)
-    project = create_project_with_admin(test_db, user)
+async def test_upload_document(db_session):
+    user, _ = create_user(db_session)
+    project = create_project_with_admin(db_session, user)
 
     def fake_validate_token():
         return user.name
@@ -257,10 +252,10 @@ async def test_upload_document(override_db, test_db):
 
 
 @pytest.mark.asyncio
-async def test_list_documents(override_db, test_db):
-    user, _ = create_user(test_db)
-    project = create_project_with_admin(test_db, user)
-    document = create_document(test_db, project)
+async def test_list_documents(db_session):
+    user, _ = create_user(db_session)
+    project = create_project_with_admin(db_session, user)
+    document = create_document(db_session, project)
 
     def fake_validate_token():
         return user.name
@@ -276,10 +271,10 @@ async def test_list_documents(override_db, test_db):
 
 
 @pytest.mark.asyncio
-async def test_download_document(override_db, test_db):
-    user, _ = create_user(test_db)
-    project = create_project_with_admin(test_db, user)
-    document = create_document(test_db, project)
+async def test_download_document(db_session):
+    user, _ = create_user(db_session)
+    project = create_project_with_admin(db_session, user)
+    document = create_document(db_session, project)
 
     def fake_validate_token():
         return user.name
@@ -294,10 +289,10 @@ async def test_download_document(override_db, test_db):
 
 
 @pytest.mark.asyncio
-async def test_update_document(override_db, test_db):
-    user, _ = create_user(test_db)
-    project = create_project_with_admin(test_db, user)
-    document = create_document(test_db, project)
+async def test_update_document(db_session):
+    user, _ = create_user(db_session)
+    project = create_project_with_admin(db_session, user)
+    document = create_document(db_session, project)
 
     def fake_validate_token():
         return user.name
@@ -315,10 +310,10 @@ async def test_update_document(override_db, test_db):
 
 
 @pytest.mark.asyncio
-async def test_delete_document(override_db, test_db):
-    user, _ = create_user(test_db)
-    project = create_project_with_admin(test_db, user)
-    document = create_document(test_db, project)
+async def test_delete_document(db_session):
+    user, _ = create_user(db_session)
+    project = create_project_with_admin(db_session, user)
+    document = create_document(db_session, project)
 
     def fake_validate_token():
         return user.name
@@ -330,4 +325,3 @@ async def test_delete_document(override_db, test_db):
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["detail"] == "Document deleted"
-
