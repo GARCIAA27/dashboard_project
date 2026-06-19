@@ -1,5 +1,6 @@
 from datetime import datetime
 from io import BytesIO
+import os
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -23,10 +24,12 @@ def download_document(
     doc = get_document(document_id, db)
     exception_access(project_id=doc.project_id, user_id=user_id, db=db)
 
+    # ensure key has no leading slash to avoid malformed urls
+    key = doc.s3_key.lstrip('/')
     signed_url = s3_client.generate_presigned_url(
         "get_object",
-        Params={"Bucket": AWS_BUCKET_NAME, "Key": doc.s3_key},
-        ExpiresIn=3600
+        Params={"Bucket": AWS_BUCKET_NAME, "Key": key},
+        ExpiresIn=3600,
     )
     return {"download_url": signed_url}
 
@@ -42,16 +45,19 @@ async def update_document(
     doc = get_document(document_id, db)
     exception_access(doc.project_id, user_id, db)
 
-    if file.filename != doc.filename:
+    # sanitize and compare filename
+    filename = os.path.basename(file.filename)
+    if filename != doc.filename:
         raise HTTPException(
             status_code=400,
             detail=f"Filename mismatch: expected '{doc.filename}', got '{file.filename}'"
         )
 
-    # Safety check for file type
-    validate_file_extension(file.filename)
+    # Safety check in the app layer to prevent invalid file types, even if S3 bucket policies are in place.
+    validate_file_extension(filename)
     content = await file.read()
-    s3_client.upload_fileobj(BytesIO(content), AWS_BUCKET_NAME, doc.s3_key)
+    key = doc.s3_key.lstrip('/')
+    s3_client.upload_fileobj(BytesIO(content), AWS_BUCKET_NAME, key)
 
     doc.size = len(content)
     doc.upload_date = datetime.utcnow()
@@ -71,7 +77,8 @@ def delete_document(
     doc = get_document(document_id, db)
     exception_access(project_id=doc.project_id, user_id=user_id, db=db)
 
-    s3_client.delete_object(Bucket=AWS_BUCKET_NAME, Key=doc.s3_key)
+    key = doc.s3_key.lstrip('/')
+    s3_client.delete_object(Bucket=AWS_BUCKET_NAME, Key=key)
 
     db.delete(doc)
     db.commit()

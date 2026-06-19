@@ -1,5 +1,6 @@
 from io import BytesIO
 from datetime import datetime
+import os
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -55,7 +56,8 @@ def delete_project(
 
     documents = db.query(Document).filter(Document.project_id == project_id).all()
     for document in documents:
-        s3_client.delete_object(Bucket=AWS_BUCKET_NAME, Key=document.s3_key)
+        key = document.s3_key.lstrip('/')
+        s3_client.delete_object(Bucket=AWS_BUCKET_NAME, Key=key)
         db.delete(document)
 
     db.query(ProjectAccess).filter(ProjectAccess.project_id == project_id).delete()
@@ -147,14 +149,16 @@ async def upload_document(
     exception_access(project_id, user, db)
 
     # Safety check in the app layer
-    validate_file_extension(file.filename)
+    # sanitize filename and build s3 key to avoid malformed URLs
+    filename = os.path.basename(file.filename)
+    validate_file_extension(filename)
     content = await file.read()
-    s3_key = f"projects/{project_id}/{file.filename}"
+    s3_key = f"projects/{project_id}/{filename}".lstrip('/')
     s3_client.upload_fileobj(BytesIO(content), AWS_BUCKET_NAME, s3_key)
 
     doc = Document(
         project_id=project_id,
-        filename=file.filename,
+        filename=filename,
         s3_key=s3_key,
         size=len(content),
     )

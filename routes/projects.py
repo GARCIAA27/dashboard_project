@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, selectinload
 
-from models.projects import Project, ProjectAccess
+from models.projects import Project, ProjectAccess, RoleEnum
 from routes.auth import validate_token
 from utils.utils import get_db, get_user_id
 from validation_schemas.projects import ProjectCreate, ProjectResponse
@@ -18,7 +18,7 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db),
     db.commit()
     db.refresh(new_project)
 
-    access = ProjectAccess(project_id=new_project.id, user_id=user_id, role="admin")
+    access = ProjectAccess(project_id=new_project.id, user_id=user_id, role=RoleEnum.admin)
     db.add(access)
     db.commit()
 

@@ -6,8 +6,8 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 class RoleEnum(str, PyEnum):
-    ADMIN = "admin"
-    USER = "user"
+    admin = "admin"
+    user = "user"
 
 class Project(Base):
     __tablename__ = "projects"

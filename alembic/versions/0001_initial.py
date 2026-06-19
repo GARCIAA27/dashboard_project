@@ -15,8 +15,6 @@ depends_on = None
 
 def upgrade():
     role_enum = sa.Enum("admin", "user", name="role_enum")
-    role_enum.create(op.get_bind(), checkfirst=True)
-
     op.create_table(
         "users",
         sa.Column("id", sa.Integer(), primary_key=True, index=True),
