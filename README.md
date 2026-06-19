@@ -37,15 +37,47 @@ Setup
 
    docker compose up --build -d
 
-2. Create the database tables manually:
+2. Apply the database migrations with Alembic:
 
-   docker compose exec api python create_tables.py
+   docker compose exec api alembic upgrade head
 
 3. Verify tables in PostgreSQL:
 
    docker compose exec db psql -U postgres -d projectdb -c "\dt"
 
-Important: This manual table creation only needs to be done the first time the database is initialized.
+Alembic workflow
+
+- Generate a new migration after changing models:
+
+  docker compose exec api alembic revision --autogenerate -m "describe change"
+
+- Apply migrations to the database:
+
+  docker compose exec api alembic upgrade head
+
+- Inspect the current revision history:
+
+  docker compose exec api alembic history --verbose
+
+Note: `create_tables.py` now calls Alembic under the hood, so the migration command is the preferred approach.
+
+Database migrations with Alembic
+
+This project now uses Alembic for schema management instead of raw `Base.metadata.create_all()`.
+
+- `alembic.ini`: Alembic configuration file.
+- `alembic/env.py`: loads your SQLAlchemy models and connects to `DATABASE_URL`.
+- `alembic/versions/`: stores migration scripts in order.
+- `create_tables.py`: now runs `alembic upgrade head` to apply migrations.
+
+How Alembic works
+
+Alembic tracks database schema changes as versioned migration scripts. When you add or change models, create a new revision and then apply it. That keeps your database schema in sync across environments and avoids manual table creation.
+
+Use these commands from the container:
+
+- Generate a new migration: `docker compose exec api alembic revision --autogenerate -m "describe change"`
+- Apply migrations: `docker compose exec api alembic upgrade head`
 
 API Endpoints
 

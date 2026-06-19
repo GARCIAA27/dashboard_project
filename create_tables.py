@@ -1,5 +1,7 @@
-from database import Base, engine
+from alembic.config import Config
+from alembic import command
 
-print("Creando tablas...")
-Base.metadata.create_all(bind=engine)
-print("Tablas creadas.")
+print("Running Alembic migrations...")
+config = Config("alembic.ini")
+command.upgrade(config, "head")
+print("Migrations applied.")

@@ -146,7 +146,7 @@ async def upload_document(
     user = get_user_id(username, db)
     exception_access(project_id, user, db)
 
-    # Safety check in the app layer; actual file type enforcement is handled by AWS Lambda.
+    # Safety check in the app layer
     validate_file_extension(file.filename)
     content = await file.read()
     s3_key = f"projects/{project_id}/{file.filename}"
