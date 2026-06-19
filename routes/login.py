@@ -17,6 +17,7 @@ ALGORITHM = os.getenv("ALGORITHM")
 
 router = APIRouter()
 
+#Endpoint for user login, returns JWT token on successful authentication
 @router.post("/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.name == request.name).first()

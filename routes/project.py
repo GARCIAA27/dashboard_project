@@ -10,7 +10,7 @@ from models.projects import Project, ProjectAccess
 from models.user import User
 from routes.auth import validate_token
 from utils.aws_config import AWS_BUCKET_NAME, s3_client
-from utils.utils import exception_access, get_db, get_user_id, validate_file_extension
+from utils.utils import exception_access, get_db, get_user_id, validate_file_extension,sanitize_filename
 from validation_schemas.documents import DocumentResponse
 from validation_schemas.project import ProjectAccessCreate, ProjectUpdate
 router = APIRouter()
@@ -148,8 +148,7 @@ async def upload_document(
     user = get_user_id(username, db)
     exception_access(project_id, user, db)
 
-    # Safety check in the app layer
-    # sanitize filename and build s3 key to avoid malformed URLs
+    # Safety check in the app layer to prevent invalid file types, even if S3 bucket policies are in place.
     filename = os.path.basename(file.filename)
     validate_file_extension(filename)
     content = await file.read()
@@ -158,7 +157,7 @@ async def upload_document(
 
     doc = Document(
         project_id=project_id,
-        filename=filename,
+        filename=sanitize_filename(filename),
         s3_key=s3_key,
         size=len(content),
     )

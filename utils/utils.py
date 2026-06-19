@@ -1,4 +1,5 @@
 import os
+import re
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -41,3 +42,10 @@ def validate_file_extension(filename: str):
             status_code=400,
             detail="Invalid file type. Only .pdf and .docx are allowed."
         )
+
+def sanitize_filename(filename: str) -> str:
+    # Remove leading/trailing whitespace, replace spaces with underscores, and remove special characters
+    filename = filename.strip()
+    filename = re.sub(r"\s+", "_", filename)  # espacios → _
+    filename = re.sub(r"[^a-zA-Z0-9._-]", "", filename)  # quita acentos y símbolos
+    return filename

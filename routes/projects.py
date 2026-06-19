@@ -8,6 +8,7 @@ from validation_schemas.projects import ProjectCreate, ProjectResponse
 
 router = APIRouter()
 
+# Endpoint to create a new project.
 @router.post("/projects", response_model=ProjectResponse)
 def create_project(project: ProjectCreate, db: Session = Depends(get_db),
                    username: str = Depends(validate_token)):
@@ -24,6 +25,7 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db),
 
     return new_project
 
+# Endpoint to list projects, only accessible to project members (admin or user).
 @router.get("/projects")
 def list_projects(username: str = Depends(validate_token), db: Session = Depends(get_db)):
     user_id = get_user_id(username, db)
