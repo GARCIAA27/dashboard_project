@@ -1,9 +1,12 @@
+from datetime import datetime
+from io import BytesIO
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from routes.auth import validate_token
 from utils.aws_config import AWS_BUCKET_NAME, s3_client
-from utils.utils import exception_access, get_db, get_document, get_user_id
+from utils.utils import exception_access, get_db, get_document, get_user_id, validate_file_extension
 from validation_schemas.documents import DocumentResponse
 
 router = APIRouter()
@@ -29,7 +32,7 @@ def download_document(
 
 #Endpoint to update a document, reupload (admin or user)  .
 @router.put("/document/{document_id}", response_model=DocumentResponse)
-def update_document(
+async def update_document(
     document_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -44,9 +47,14 @@ def update_document(
             status_code=400,
             detail=f"Filename mismatch: expected '{doc.filename}', got '{file.filename}'"
         )
-    s3_client.upload_fileobj(file.file, AWS_BUCKET_NAME, doc.s3_key)
 
-    doc.size = file.size if hasattr(file, "size") else None
+    # Safety check for file type
+    validate_file_extension(file.filename)
+    content = await file.read()
+    s3_client.upload_fileobj(BytesIO(content), AWS_BUCKET_NAME, doc.s3_key)
+
+    doc.size = len(content)
+    doc.upload_date = datetime.utcnow()
 
     db.commit()
     db.refresh(doc)

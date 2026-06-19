@@ -74,9 +74,13 @@ def patch_s3(monkeypatch):
     monkeypatch.setattr(document_routes, "s3_client", dummy_s3)
 
 
-def create_user(db_session, name=None, password=None):
+def create_user(db_session, name=None, email=None, password=None):
     raw_password = password or fake.password()
-    user = User(name=name or fake.user_name(), password=hash_password(raw_password))
+    user = User(
+        name=name or fake.user_name(),
+        email=email or fake.email(),
+        password=hash_password(raw_password),
+    )
     db_session.add(user)
     db_session.commit()
     db_session.refresh(user)
@@ -94,7 +98,7 @@ def create_project_with_admin(db_session, owner):
     return project
 
 
-def create_document(db_session, project, filename="test-file.txt", size=42):
+def create_document(db_session, project, filename="test-file.pdf", size=42):
     document = Document(
         project_id=project.id,
         filename=filename,
@@ -112,6 +116,7 @@ async def test_auth_register():
     password = fake.password()
     payload = {
         "name": fake.user_name(),
+        "email": fake.email(),
         "password": password,
         "repeat_password": password,
     }
@@ -158,6 +163,7 @@ async def test_create_project(db_session):
 async def test_list_projects(db_session):
     user, _ = create_user(db_session)
     project = create_project_with_admin(db_session, user)
+    create_document(db_session, project, filename="project-file.pdf")
 
     def fake_validate_token():
         return user.name
@@ -170,6 +176,7 @@ async def test_list_projects(db_session):
     assert response.status_code == status.HTTP_200_OK
     result = response.json()
     assert any(item["name"] == project.name for item in result)
+    assert any(item["documents"] for item in result if item["name"] == project.name)
 
 
 @pytest.mark.asyncio
@@ -245,13 +252,15 @@ async def test_upload_document(db_session):
     async with AsyncClient(app=app, base_url="http://test") as ac:
         response = await ac.post(
             f"/project/{project.id}/documents",
-            files={"file": ("test.txt", b"hello world")},
+            files={"file": ("test.pdf", b"hello world")},
         )
 
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["filename"] == "test.txt"
+    assert data["filename"] == "test.pdf"
     assert data["project_id"] == project.id
+    assert data["size"] == len(b"hello world")
+    assert "upload_date" in data
 
 
 @pytest.mark.asyncio

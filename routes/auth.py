@@ -30,13 +30,17 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     if user.password != user.repeat_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
 
-    # Check if user already exists
-    existing = db.query(User).filter(User.name == user.name).first()
-    if existing:
+    # Check if user already exists by name or email
+    existing_name = db.query(User).filter(User.name == user.name).first()
+    if existing_name:
         raise HTTPException(status_code=400, detail="User already exists")
 
+    existing_email = db.query(User).filter(User.email == user.email).first()
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already in use")
+
     hashed_pw = hash_password(user.password)
-    new_user = User(name=user.name, password=hashed_pw)
+    new_user = User(name=user.name, email=user.email, password=hashed_pw)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)

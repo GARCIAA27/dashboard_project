@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from models.projects import Project, ProjectAccess
 from routes.auth import validate_token
@@ -27,7 +27,7 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db),
 @router.get("/projects")
 def list_projects(username: str = Depends(validate_token), db: Session = Depends(get_db)):
     user_id = get_user_id(username, db)
-    projects = db.query(Project).outerjoin(ProjectAccess).filter(
+    projects = db.query(Project).options(selectinload(Project.documents)).outerjoin(ProjectAccess).filter(
         (Project.owner_id == user_id) | (ProjectAccess.user_id == user_id)
     ).all()
     return projects

@@ -1,3 +1,5 @@
+import os
+
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -30,3 +32,12 @@ def get_document(document_id: int, db: Session = Depends(get_db)):
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     return doc
+
+
+def validate_file_extension(filename: str):
+    extension = os.path.splitext(filename)[1].lower()
+    if extension not in {".pdf", ".docx"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Only .pdf and .docx are allowed."
+        )

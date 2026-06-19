@@ -1,3 +1,6 @@
+from io import BytesIO
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
@@ -6,7 +9,7 @@ from models.projects import Project, ProjectAccess
 from models.user import User
 from routes.auth import validate_token
 from utils.aws_config import AWS_BUCKET_NAME, s3_client
-from utils.utils import exception_access, get_db, get_user_id
+from utils.utils import exception_access, get_db, get_user_id, validate_file_extension
 from validation_schemas.documents import DocumentResponse
 from validation_schemas.project import ProjectAccessCreate, ProjectUpdate
 router = APIRouter()
@@ -49,6 +52,13 @@ def delete_project(
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    documents = db.query(Document).filter(Document.project_id == project_id).all()
+    for document in documents:
+        s3_client.delete_object(Bucket=AWS_BUCKET_NAME, Key=document.s3_key)
+        db.delete(document)
+
+    db.query(ProjectAccess).filter(ProjectAccess.project_id == project_id).delete()
     db.delete(project)
     db.commit()
     return {"detail": "Project deleted"}
@@ -96,15 +106,13 @@ def update_project_info(
     user_id = get_user_id(username, db)
 
     # Validate that the user has admin access to the project
-    admin_access = db.query(ProjectAccess).filter(
+    access = db.query(ProjectAccess).filter(
         ProjectAccess.project_id == project_id,
         ProjectAccess.user_id == user_id,
-        ProjectAccess.role == "admin"
     ).first()
 
-    if not admin_access:
-        raise HTTPException(status_code=403,
-                            detail="Access forbidden. Only admins can update projects")
+    if not access:
+        raise HTTPException(status_code=403, detail="Access forbidden")
 
     # Search for the project to update
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -129,7 +137,7 @@ def update_project_info(
 # Endpoint to upload a document to a project, only accessible to project members
 # (admin or user). The document will be stored in S3 and its metadata in the database.
 @router.post("/project/{project_id}/documents", response_model=DocumentResponse)
-def upload_document(
+async def upload_document(
     project_id: int,
     file: UploadFile = File(...),
     username: str = Depends(validate_token),
@@ -138,13 +146,17 @@ def upload_document(
     user = get_user_id(username, db)
     exception_access(project_id, user, db)
 
+    # Safety check in the app layer; actual file type enforcement is handled by AWS Lambda.
+    validate_file_extension(file.filename)
+    content = await file.read()
     s3_key = f"projects/{project_id}/{file.filename}"
-    s3_client.upload_fileobj(file.file, AWS_BUCKET_NAME, s3_key)
+    s3_client.upload_fileobj(BytesIO(content), AWS_BUCKET_NAME, s3_key)
+
     doc = Document(
         project_id=project_id,
         filename=file.filename,
         s3_key=s3_key,
-        size=file.size,
+        size=len(content),
     )
     db.add(doc)
     db.commit()
